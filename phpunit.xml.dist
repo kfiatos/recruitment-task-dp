@@ -6,10 +6,12 @@
          backupGlobals="false"
          colors="true"
          bootstrap="tests/bootstrap.php"
+         displayDetailsOnTestsThatTriggerWarnings="true"
 >
     <php>
         <ini name="display_errors" value="1" />
         <ini name="error_reporting" value="-1" />
+        <server name="SHELL_VERBOSITY" value="-1" />
     </php>
 
     <testsuites>

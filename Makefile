@@ -25,5 +25,11 @@ destroy: stop
 test-phpunit:
 	${COMPOSE} run --rm php php bin/phpunit
 
+php-cs-fixer:
+	${COMPOSE} run --rm php php vendor/bin/php-cs-fixer fix --allow-risky=yes
+
+phpstan:
+	${COMPOSE} run --rm php php vendor/bin/phpstan
+
 bash:
-	${COMPOSE} run php bash
+	docker exec -it unit-testing-api-php bash

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service\DoctorsApi;
 
 use App\DoctorId;
@@ -14,7 +16,7 @@ class InMemoryDoctorApiClient implements DoctorApiClientInterface, SlotApiClient
     public array $doctors = [];
 
     /**
-     * @var DoctorSlotDataDTO[]
+     * @var array<array<DoctorSlotDataDTO>>
      */
     public array $slots = [];
 
@@ -25,7 +27,6 @@ class InMemoryDoctorApiClient implements DoctorApiClientInterface, SlotApiClient
 
     public function getDoctorSlots(DoctorId $doctorId): array
     {
-        return $this->slots;
+        return $this->slots[$doctorId->id];
     }
-
 }

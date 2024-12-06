@@ -1,11 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service\DoctorsApi;
 
 use App\DoctorId;
 use App\DTO\DoctorDataDTO;
-use App\Entity\Doctor;
-use App\Entity\Slot;
+use App\DTO\DoctorSlotDataDTO;
 
 class HttpDoctorsDoctorApiClient implements DoctorApiClientInterface, SlotApiClientInterface
 {
@@ -15,13 +16,12 @@ class HttpDoctorsDoctorApiClient implements DoctorApiClientInterface, SlotApiCli
 
     private function sendGetRequest(string $url): string|false
     {
-
         return @file_get_contents(
             filename: $url,
             context: stream_context_create(
                 [
                     'http' => [
-                        'header' => 'Authorization: Basic ' . $this->getAuth(),
+                        'header' => 'Authorization: Basic '.$this->getAuth(),
                     ],
                 ],
             ),
@@ -39,15 +39,17 @@ class HttpDoctorsDoctorApiClient implements DoctorApiClientInterface, SlotApiCli
         );
     }
 
-
     public function getDoctors(): array
     {
         $result = [];
         $content = $this->sendGetRequest(self::ENDPOINT);
         $data = $this->getJsonDecode($content);
+
+        /** @var array<array{id: string, name: string}> $data */
         foreach ($data as $doctor) {
-            $result[] = new DoctorDataDTO($doctor['id'], $doctor['name'] ?? '');
+            $result[] = new DoctorDataDTO((int) $doctor['id'], $doctor['name']);
         }
+
         return $result;
     }
 
@@ -55,10 +57,12 @@ class HttpDoctorsDoctorApiClient implements DoctorApiClientInterface, SlotApiCli
     {
         $result = [];
         $content = $this->sendGetRequest(sprintf('/%s/slots', $doctorId->id));
+        /** @var array<array{id: string, start: string, end:string}> $data */
         $data = $this->getJsonDecode($content);
         foreach ($data as $slot) {
-            $result[] = new Slot($doctorId->id, $slot['start'], $slot['end']);
+            $result[] = new DoctorSlotDataDTO((int) $doctorId->id, $slot['start'], $slot['end']);
         }
+
         return $result;
     }
 

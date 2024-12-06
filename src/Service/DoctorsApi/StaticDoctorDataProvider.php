@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service\DoctorsApi;
 
 use App\DTO\DoctorDataDTO;
@@ -8,7 +10,7 @@ class StaticDoctorDataProvider implements DoctorApiClientInterface
 {
     public function getDoctors(): array
     {
-        return '[
+        $data = '[
   {
     "id": 0,
     "name": "Adoring Shtern"
@@ -129,7 +131,11 @@ class StaticDoctorDataProvider implements DoctorApiClientInterface
     "id": 29,
     "name": "Eloquent Brown"
   }
-]'; //todo return DTOs
-    }
+]';
+        $encodedData = json_decode($data, true);
 
+        return array_map(function ($row) {
+            return new DoctorDataDTO($row['id'], $row['name']);
+        }, $encodedData);
+    }
 }

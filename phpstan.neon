@@ -3,7 +3,5 @@ parameters:
     reportUnmatchedIgnoredErrors: false
     paths:
         - bin/
-        - config/
-        - public/
         - src/
         - tests/

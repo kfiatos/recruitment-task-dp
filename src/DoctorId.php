@@ -1,5 +1,9 @@
 <?php
+
+declare(strict_types=1);
+
 namespace App;
+
 readonly class DoctorId
 {
     private function __construct(public string $id)
@@ -10,5 +14,4 @@ readonly class DoctorId
     {
         return new self((string) $id);
     }
-
 }

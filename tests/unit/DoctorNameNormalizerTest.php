@@ -1,6 +1,8 @@
 <?php
 
-namespace unit;
+declare(strict_types=1);
+
+namespace App\Tests\unit;
 
 use App\Normalizer\DoctorNameNormalizer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -8,10 +10,13 @@ use PHPUnit\Framework\TestCase;
 
 class DoctorNameNormalizerTest extends TestCase
 {
+    /**
+     * @param array<string> $data
+     */
     #[DataProvider('providerDoctorsNames')]
     public function testNormalize(array $data): void
     {
-        $name  = DoctorNameNormalizer::normalize($data['input_name']);
+        $name = DoctorNameNormalizer::normalize($data['input_name']);
         $this->assertEquals($data['expected_name'], $name);
     }
 

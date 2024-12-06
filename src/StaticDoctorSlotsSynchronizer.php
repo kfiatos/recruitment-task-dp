@@ -6,8 +6,5 @@ namespace App;
 
 class StaticDoctorSlotsSynchronizer extends DoctorSlotsSynchronizer
 {
-//     napisac dlaczego zostalo usuniete i ze jest nowa implementacja zamiast new StaticDoctorSlotsSynchronizer() i napisac czemu nie ma testu (bo dane by się wyjebaly)
+    // TODO content of this class was moved to implementation of the DoctorApiClientInterface into the class StaticDoctorDataProvider so that it can be used when needed to provide static data
 }
-
-
-

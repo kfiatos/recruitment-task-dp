@@ -8,8 +8,8 @@ services:
             - .:/app:cached
         working_dir: /app
         container_name: unit-testing-api-php
-#        extra_hosts:
-#            - "host.docker.internal:host-gateway"
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
         environment:
             PHP_IDE_CONFIG: "serverName=unit-testing-api-php"
 
@@ -20,4 +20,3 @@ services:
             dockerfile: docker/Dockerfile
         ports:
             - '2137:2137'
-
