@@ -1,3 +1,11 @@
+# What was not done :(
+1. Could not test if the Slot->isStale() method is working
+2. Some PHPSTAN errors are there still, fixing them would take more time and I think it can stay like this for now
+
+# What was done:
+1. dockerized
+2. refactored
+3. added as much tests as I could
 
 
 
