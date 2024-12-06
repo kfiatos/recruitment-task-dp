@@ -3,8 +3,14 @@ declare(strict_types=1);
 
 namespace App;
 
+use App\DTO\DoctorDataDTO;
+use App\DTO\DoctorSlotDataDTO;
 use App\Entity\Doctor;
 use App\Entity\Slot;
+use App\Normalizer\DoctorNameNormalizer;
+use App\Repository\DoctorRepositoryInterface;
+use App\Repository\SlotRepositoryInterface;
+use App\Service\DoctorsApi\DoctorsApiGateway;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
@@ -14,18 +20,29 @@ use Monolog\Logger;
 
 class DoctorSlotsSynchronizer
 {
-    protected const ENDPOINT = 'http://localhost:2137/api/doctors';
+    protected const ENDPOINT = 'http://unit-testing-api:2137/api/doctors';
     protected const USERNAME = 'docplanner';
     protected const PASSWORD = 'docplanner';
 
     protected EntityRepository $repository;
     protected EntityRepository $slots;
+    protected DoctorsApiGateway $apiGateway;
+
     protected Logger $logger;
 
-    public function __construct(EntityManagerInterface $em, string $logFile = 'php://stderr')
+    protected DoctorRepositoryInterface $doctorRepository;
+    protected SlotRepositoryInterface $slotRepository;
+
+    public function __construct(
+        DoctorRepositoryInterface $doctorRepository,
+        SlotRepositoryInterface $slotRepository,
+        DoctorsApiGateway $apiGateway,
+        string $logFile = 'php://stderr'
+    )
     {
-        $this->repository = $em->getRepository(Doctor::class);
-        $this->slots = $em->getRepository(Slot::class);
+        $this->apiGateway = $apiGateway;
+        $this->doctorRepository = $doctorRepository;
+        $this->slotRepository = $slotRepository;
         $this->logger = new Logger('logger', [new StreamHandler($logFile)]);
     }
 
@@ -34,43 +51,37 @@ class DoctorSlotsSynchronizer
      */
     public function synchronizeDoctorSlots(): void
     {
-        $doctors = $this->getJsonDecode($this->getDoctors());
+        $doctors = $this->getDoctors();
 
         foreach ($doctors as $doctor) {
-            $name = $this->normalizeName($doctor['name']);
+            $name = DoctorNameNormalizer::normalize($doctor->doctorName ?? '');
             /** @var Doctor $entity */
-            $entity = $this->repository->find($doctor['id']) ?? new Doctor((string)$doctor['id'], $name);
+            $entity = $this->doctorRepository->find($doctor->doctorId)
+                ??
+                new Doctor((string)$doctor->doctorId, $name)
+            ;
             $entity->setName($name);
             $entity->clearError();
-            $this->save($entity);
+            $this->doctorRepository->save($entity);
 
             foreach ($this->fetchDoctorSlots($doctor['id']) as $slot) {
                 if (false === $slot) {
                     $entity->markError();
-                    $this->save($entity);
+                    $this->doctorRepository->save($entity);
                 } else {
-                    $this->save($slot);
+                    $this->slotRepository->save(new Slot($slot->doctorId, new DateTime($slot->startDate), new DateTime($slot->endDate)));
                 }
             }
         }
     }
 
-    /**
-     * @throws JsonException
-     */
-    protected function getJsonDecode(string|bool $json): mixed
-    {
-        return json_decode(
-            json: false === $json ? '' : $json,
-            associative: true,
-            depth: 16,
-            flags: JSON_THROW_ON_ERROR,
-        );
-    }
 
-    protected function getDoctors(): string
+    /**
+     * @return DoctorDataDTO[]
+     */
+    protected function getDoctors(): array
     {
-        return $this->fetchData(self::ENDPOINT);
+        return $this->apiGateway->fetchDoctors();
     }
 
     protected function fetchData(string $url): string|false
@@ -117,7 +128,8 @@ class DoctorSlotsSynchronizer
     protected function fetchDoctorSlots(int $id): iterable
     {
         try {
-            $slots = $this->getJsonDecode($this->getSlots($id));
+            $slots = $this->getSlots($id);
+            exit();
             yield from $this->parseSlots($slots, $id);
         } catch (JsonException) {
             if ($this->shouldReportErrors()) {
@@ -127,16 +139,22 @@ class DoctorSlotsSynchronizer
         }
     }
 
-    protected function getSlots(int $id): string|false
+    protected function getSlots(int $id): array
     {
-        return $this->fetchData(self::ENDPOINT . '/' . $id . '/slots');
+        return $this->apiGateway->fetchDoctorSlots(DoctorId::fromInt($id));
     }
 
-    protected function parseSlots(mixed $slots, int $id): iterable
+    /**
+     * @param DoctorSlotDataDTO[] $slots
+     */
+    protected function parseSlots(array $slots, int $id): iterable
     {
+        /** @var DoctorSlotDataDTO $slot */
+        var_dump($slots);
+
         foreach ($slots as $slot) {
-            $start = new DateTime($slot['start']);
-            $end = new DateTime($slot['end']);
+            $start = new DateTime($slot->startDate);
+            $end = new DateTime($slot->endDate);
 
             /** @var Slot $entity */
             $entity = $this->slots->findOneBy(['doctorId' => $id, 'start' => $start])
