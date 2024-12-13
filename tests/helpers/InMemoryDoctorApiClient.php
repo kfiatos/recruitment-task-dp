@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Service\DoctorsApi;
+namespace App\Tests\helpers;
 
-use App\DoctorId;
 use App\DTO\DoctorDataDTO;
 use App\DTO\DoctorSlotDataDTO;
+use App\Service\DoctorsApi\Contract\DoctorApiClientInterface;
+use App\Service\DoctorsApi\Contract\SlotApiClientInterface;
+use App\ValueObject\DoctorId;
 
 class InMemoryDoctorApiClient implements DoctorApiClientInterface, SlotApiClientInterface
 {
@@ -16,7 +18,7 @@ class InMemoryDoctorApiClient implements DoctorApiClientInterface, SlotApiClient
     public array $doctors = [];
 
     /**
-     * @var array<array<DoctorSlotDataDTO>>
+     * @var array<DoctorSlotDataDTO[]>
      */
     public array $slots = [];
 
@@ -27,6 +29,6 @@ class InMemoryDoctorApiClient implements DoctorApiClientInterface, SlotApiClient
 
     public function getDoctorSlots(DoctorId $doctorId): array
     {
-        return $this->slots[$doctorId->id];
+        return $this->slots[$doctorId->id] ?? [];
     }
 }

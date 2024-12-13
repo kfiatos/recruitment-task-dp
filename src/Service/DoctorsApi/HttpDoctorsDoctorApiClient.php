@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Service\DoctorsApi;
 
-use App\DoctorId;
 use App\DTO\DoctorDataDTO;
 use App\DTO\DoctorSlotDataDTO;
+use App\Service\DoctorsApi\Contract\DoctorApiClientInterface;
+use App\Service\DoctorsApi\Contract\SlotApiClientInterface;
+use App\ValueObject\DoctorId;
 
 class HttpDoctorsDoctorApiClient implements DoctorApiClientInterface, SlotApiClientInterface
 {

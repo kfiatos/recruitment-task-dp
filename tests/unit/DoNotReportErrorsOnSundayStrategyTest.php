@@ -1,6 +1,6 @@
 <?php
 
-namespace unit;
+namespace App\Tests\unit;
 
 use App\Service\Strategy\DoNotReportErrorsOnSundayStrategy;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -20,7 +20,6 @@ class DoNotReportErrorsOnSundayStrategyTest extends TestCase
         $strategy = new DoNotReportErrorsOnSundayStrategy(new \DateTimeImmutable($day));
         $this->assertTrue($strategy->shouldReport());
     }
-
 
     public static function provideDays(): \Generator
     {

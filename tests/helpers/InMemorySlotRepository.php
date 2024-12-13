@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Repository;
+namespace App\Tests\helpers;
 
 use App\Entity\Slot;
+use App\Repository\SlotRepositoryInterface;
 
 class InMemorySlotRepository implements SlotRepositoryInterface
 {

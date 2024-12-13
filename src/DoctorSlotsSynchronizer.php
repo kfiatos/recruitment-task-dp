@@ -5,55 +5,42 @@ declare(strict_types=1);
 namespace App;
 
 use App\DTO\DoctorDataDTO;
-use App\DTO\DoctorSlotDataDTO;
-use App\Entity\Doctor;
 use App\Entity\Slot;
-use App\Normalizer\DoctorNameNormalizer;
-use App\Repository\DoctorRepositoryInterface;
-use App\Repository\SlotRepositoryInterface;
+use App\Exception\CannotGetDoctorsException;
+use App\Exception\CannotGetDoctorSlotsException;
 use App\Service\DoctorsApi\DoctorsApiGateway;
+use App\Service\Processor\DoctorServiceInterface;
+use App\Service\Processor\SlotServiceInterface;
 use App\Service\Strategy\ErrorReportingStrategyInterface;
-use Monolog\Handler\StreamHandler;
-use Monolog\Logger;
+use App\ValueObject\DoctorId;
+use Psr\Log\LoggerInterface;
 
 class DoctorSlotsSynchronizer
 {
-    protected Logger $logger;
-
     public function __construct(
-        protected DoctorRepositoryInterface $doctorRepository,
-        protected SlotRepositoryInterface $slotRepository,
         protected DoctorsApiGateway $apiGateway,
+        protected DoctorServiceInterface $doctorProcessor,
+        protected SlotServiceInterface $slotProcessor,
         protected ErrorReportingStrategyInterface $errorReportingStrategy,
-        string $logFile = 'php://stderr',
+        protected LoggerInterface $logger,
     ) {
-        $this->logger = new Logger('logger', [new StreamHandler($logFile)]);
     }
 
     /**
-     * @throws \JsonException
+     * @throws \DateMalformedStringException
      */
     public function synchronizeDoctorSlots(): void
     {
         $doctors = $this->getDoctors();
 
         foreach ($doctors as $doctor) {
-            $name = DoctorNameNormalizer::normalize($doctor->doctorName ?? '');
-            $entity = $this->doctorRepository->find($doctor->doctorId)
-                ??
-                new Doctor((string) $doctor->doctorId, $name)
-            ;
-            $entity->setName($name);
-            $entity->clearError();
-            $this->doctorRepository->save($entity);
-
-            foreach ($this->fetchDoctorSlots($doctor->doctorId) as $slot) {
-                if (false === $slot) {
-                    $entity->markError();
-                    $this->doctorRepository->save($entity);
-                } else {
-                    $this->slotRepository->save($slot);
+            $doctorEntity = $this->doctorProcessor->prepareAndSave($doctor);
+            foreach ($this->fetchDoctorSlots((int) $doctorEntity->getId()) as $slot) {
+                if ($slot) {
+                    $this->slotProcessor->persist($slot);
+                    continue;
                 }
+                $this->doctorProcessor->markError($doctorEntity);
             }
         }
     }
@@ -63,57 +50,31 @@ class DoctorSlotsSynchronizer
      */
     protected function getDoctors(): array
     {
-        return $this->apiGateway->fetchDoctors();
-    }
-
-    /**
-     * @return array<Slot|false>
-     *
-     * @throws \DateMalformedStringException
-     */
-    protected function fetchDoctorSlots(int $id): iterable
-    {
         try {
-            $doctorSlots = $this->getSlots($id);
-            yield from $this->parseSlots($doctorSlots, $id);
-        } catch (\JsonException) {
-            if ($this->shouldReportErrors()) {
-                $this->logger->info('Error fetching slots for doctor', ['doctorId' => $id]);
-            }
-            yield false;
+            return $this->apiGateway->getDoctors();
+        } catch (CannotGetDoctorsException $e) {
+            $this->logger->error('Cannot get doctors from source ', ['error' => $e->getMessage()]);
+
+            return [];
         }
     }
 
     /**
-     * @return DoctorSlotDataDTO[]
-     */
-    protected function getSlots(int $id): array
-    {
-        return $this->apiGateway->fetchDoctorSlots(DoctorId::fromInt($id));
-    }
-
-    /**
-     * @param DoctorSlotDataDTO[] $doctorSlots
-     *
-     * @return Slot[]
+     * @return array<Slot|null>
      *
      * @throws \DateMalformedStringException
      */
-    protected function parseSlots(array $doctorSlots, int $id): iterable
+    protected function fetchDoctorSlots(int $doctorId): iterable
     {
-        /** @var DoctorSlotDataDTO $slot */
-        foreach ($doctorSlots as $slot) {
-            $start = new \DateTime($slot->startDate);
-            $end = new \DateTime($slot->endDate);
-
-            $entity = $this->slotRepository->findOneByDoctorIdAndStartTime($id, $start)
-                ?: new Slot($id, $start, $end);
-
-            if ($entity->isStale()) {
-                $entity->setEnd($end);
+        try {
+            $doctorSlots = $this->apiGateway->getDoctorSlots(DoctorId::fromInt($doctorId));
+            yield from $this->slotProcessor->parseSlots($doctorSlots, $doctorId);
+        } catch (CannotGetDoctorSlotsException $e) {
+            if ($this->shouldReportErrors()) {
+                $this->logger->info('Error fetching slots for doctor:', ['doctorId' => $doctorId]);
+                $this->logger->warning('Cannot fetch slots because of:', ['error' => $e->getMessage()]);
             }
-
-            yield $entity;
+            yield null;
         }
     }
 

@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Repository;
+namespace App\Tests\helpers;
 
 use App\Entity\Doctor;
+use App\Repository\DoctorRepositoryInterface;
 
 class InMemoryDoctorRepository implements DoctorRepositoryInterface
 {

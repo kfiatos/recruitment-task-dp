@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Service\DoctorsApi;
 
-use App\DoctorId;
 use App\DTO\DoctorDataDTO;
 use App\DTO\DoctorSlotDataDTO;
+use App\Exception\CannotGetDoctorsException;
+use App\Exception\CannotGetDoctorSlotsException;
+use App\Service\DoctorsApi\Contract\DoctorApiClientInterface;
+use App\Service\DoctorsApi\Contract\DoctorsGatewayInterface;
+use App\Service\DoctorsApi\Contract\SlotApiClientInterface;
+use App\ValueObject\DoctorId;
 
-readonly class DoctorsApiGateway
+readonly class DoctorsApiGateway implements DoctorsGatewayInterface
 {
     public function __construct(private DoctorApiClientInterface $doctorApiClient, private SlotApiClientInterface $slotApiClient)
     {
@@ -16,17 +21,29 @@ readonly class DoctorsApiGateway
 
     /**
      * @return DoctorDataDTO[]
+     *
+     * @throws CannotGetDoctorsException
      */
-    public function fetchDoctors(): array
+    public function getDoctors(): array
     {
-        return $this->doctorApiClient->getDoctors();
+        try {
+            return $this->doctorApiClient->getDoctors();
+        } catch (\Exception $e) {
+            throw new CannotGetDoctorsException($e->getMessage());
+        }
     }
 
     /**
      * @return DoctorSlotDataDTO[]
+     *
+     * @throws CannotGetDoctorSlotsException
      */
-    public function fetchDoctorSlots(DoctorId $doctorId): array
+    public function getDoctorSlots(DoctorId $doctorId): array
     {
-        return $this->slotApiClient->getDoctorSlots($doctorId);
+        try {
+            return $this->slotApiClient->getDoctorSlots($doctorId);
+        } catch (\Exception $e) {
+            throw new CannotGetDoctorSlotsException($e->getMessage());
+        }
     }
 }

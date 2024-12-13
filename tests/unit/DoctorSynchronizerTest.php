@@ -8,26 +8,30 @@ use App\DoctorSlotsSynchronizer;
 use App\DTO\DoctorDataDTO;
 use App\DTO\DoctorSlotDataDTO;
 use App\Entity\Doctor;
-use App\Repository\DoctorRepositoryInterface;
-use App\Repository\InMemoryDoctorRepository;
-use App\Repository\InMemorySlotRepository;
-use App\Repository\SlotRepositoryInterface;
-use App\Service\DoctorsApi\DoctorApiClientInterface;
+use App\Exception\CannotGetDoctorsException;
 use App\Service\DoctorsApi\DoctorsApiGateway;
-use App\Service\DoctorsApi\InMemoryDoctorApiClient;
-use App\Service\DoctorsApi\SlotApiClientInterface;
+use App\Service\Processor\DoctorService;
+use App\Service\Processor\SlotService;
 use App\Service\Strategy\DoNotReportErrorsOnSundayStrategy;
 use App\Service\Strategy\ErrorReportingStrategyInterface;
+use App\Tests\helpers\InMemoryDoctorApiClient;
+use App\Tests\helpers\InMemoryDoctorRepository;
+use App\Tests\helpers\InMemorySlotRepository;
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 class DoctorSynchronizerTest extends TestCase
 {
     private DoctorSlotsSynchronizer $synchronizerUnderTest;
-    private DoctorRepositoryInterface $doctorRepository;
-    private SlotRepositoryInterface $slotRepository;
+    private InMemoryDoctorRepository $doctorRepository;
+    private InMemorySlotRepository $slotRepository;
     private DoctorsApiGateway $apiGateway;
-    private DoctorApiClientInterface|InMemoryDoctorApiClient $inMemoryDoctorApiClient;
-    private SlotApiClientInterface|InMemoryDoctorApiClient $inMemorySlotsApiClient;
+    private InMemoryDoctorApiClient $inMemoryDoctorApiClient;
+    private InMemoryDoctorApiClient $inMemorySlotsApiClient;
+
+    private LoggerInterface $logger;
 
     public function testSynchronize(): void
     {
@@ -54,19 +58,16 @@ class DoctorSynchronizerTest extends TestCase
 
     public function testSetsDoctorErrorOnFalseSlot(): void
     {
-        $this->doctorRepository = new InMemoryDoctorRepository([]);
-        $this->slotRepository = new InMemorySlotRepository([]);
-        $this->inMemoryDoctorApiClient = new InMemoryDoctorApiClient();
-        $this->inMemorySlotsApiClient = $this->createMock(SlotApiClientInterface::class);
+        $this->inMemorySlotsApiClient = $this->createMock(InMemoryDoctorApiClient::class);
         $this->inMemorySlotsApiClient->method('getDoctorSlots')->willThrowException(new \JsonException('json decode error'));
 
         $this->apiGateway = new DoctorsApiGateway($this->inMemoryDoctorApiClient, $this->inMemorySlotsApiClient);
         $this->synchronizerUnderTest = new DoctorSlotsSynchronizer(
-            doctorRepository: $this->doctorRepository,
-            slotRepository: $this->slotRepository,
             apiGateway: $this->apiGateway,
+            doctorProcessor: new DoctorService($this->doctorRepository, $this->logger),
+            slotProcessor: new SlotService($this->slotRepository, $this->logger),
             errorReportingStrategy: new DoNotReportErrorsOnSundayStrategy(),
-            logFile: '/dev/null',
+            logger: $this->createLogger('/dev/null'),
         );
 
         $this->inMemoryDoctorApiClient->doctors = [
@@ -76,24 +77,28 @@ class DoctorSynchronizerTest extends TestCase
         $this->synchronizerUnderTest->synchronizeDoctorSlots();
 
         $entity = $this->doctorRepository->find(1);
-        $this->assertTrue($entity->hasError());
+        $this->assertTrue($entity?->hasError());
     }
 
+    /**
+     * @not void
+     *
+     * @throws \JsonException
+     * @throws \PHPUnit\Framework\MockObject\Exception
+     */
     public function testLogsErrorOnFalseDoctorSlotWhenConditionsMet(): void
     {
-        $this->doctorRepository = new InMemoryDoctorRepository([]);
-        $this->slotRepository = new InMemorySlotRepository([]);
-        $this->inMemoryDoctorApiClient = new InMemoryDoctorApiClient();
-        $this->inMemorySlotsApiClient = $this->createMock(SlotApiClientInterface::class);
-        $this->inMemorySlotsApiClient->method('getDoctorSlots')->willThrowException(new \JsonException('json dencode error'));
+        $logfile = 'error.log';
+        $this->inMemorySlotsApiClient = $this->createMock(InMemoryDoctorApiClient::class);
+        $this->inMemorySlotsApiClient->method('getDoctorSlots')->willThrowException(new \JsonException('json decode error'));
 
         $this->apiGateway = new DoctorsApiGateway($this->inMemoryDoctorApiClient, $this->inMemorySlotsApiClient);
         $this->synchronizerUnderTest = new DoctorSlotsSynchronizer(
-            doctorRepository: $this->doctorRepository,
-            slotRepository: $this->slotRepository,
             apiGateway: $this->apiGateway,
+            doctorProcessor: new DoctorService($this->doctorRepository, $this->logger),
+            slotProcessor: new SlotService($this->slotRepository, $this->logger),
             errorReportingStrategy: new DoNotReportErrorsOnSundayStrategy(),
-            logFile: 'error.log'
+            logger: $this->createLogger($logfile),
         );
 
         $doctorId = 1;
@@ -102,29 +107,29 @@ class DoctorSynchronizerTest extends TestCase
         ];
         $this->synchronizerUnderTest->synchronizeDoctorSlots();
 
-        $this->assertStringContainsString(sprintf('Error fetching slots for doctor {"doctorId":%s}', $doctorId), file_get_contents('error.log'));
-        unlink('error.log');
+        $this->assertStringContainsString(sprintf('Error fetching slots for doctor: {"doctorId":%s}', $doctorId), file_get_contents($logfile) ?: '');
+        if (file_exists($logfile)) {
+            unlink($logfile);
+        }
     }
 
     public function testLogsErrorOnFalseDoctorSlotWhenConditionsNotMet(): void
     {
         $logfile = 'error.log';
-        $this->doctorRepository = new InMemoryDoctorRepository([]);
-        $this->slotRepository = new InMemorySlotRepository([]);
-        $this->inMemoryDoctorApiClient = new InMemoryDoctorApiClient();
-        $this->inMemorySlotsApiClient = $this->createMock(SlotApiClientInterface::class);
-        $this->inMemorySlotsApiClient->method('getDoctorSlots')->willThrowException(new \JsonException('json decode error'));
+        $this->inMemorySlotsApiClient = $this->createMock(InMemoryDoctorApiClient::class);
+        $this->inMemorySlotsApiClient->method('getDoctorSlots')->willThrowException(new CannotGetDoctorsException('api error'));
 
         $this->apiGateway = new DoctorsApiGateway($this->inMemoryDoctorApiClient, $this->inMemorySlotsApiClient);
 
         $errorReportingStrategyMock = $this->createMock(ErrorReportingStrategyInterface::class);
         $errorReportingStrategyMock->method('shouldReport')->willReturn(false);
+
         $this->synchronizerUnderTest = new DoctorSlotsSynchronizer(
-            doctorRepository: $this->doctorRepository,
-            slotRepository: $this->slotRepository,
             apiGateway: $this->apiGateway,
+            doctorProcessor: new DoctorService($this->doctorRepository, $this->logger),
+            slotProcessor: new SlotService($this->slotRepository, $this->logger),
             errorReportingStrategy: $errorReportingStrategyMock,
-            logFile: $logfile
+            logger: $this->createLogger($logfile),
         );
 
         $doctorId = 1;
@@ -133,21 +138,54 @@ class DoctorSynchronizerTest extends TestCase
         ];
         $this->synchronizerUnderTest->synchronizeDoctorSlots();
 
-        $this->assertFalse(file_exists('error.log'));
+        $this->assertFalse(file_exists($logfile));
+    }
+
+    public function testMarksErrorOnDoctorEntityWhenNoSlot(): void
+    {
+        $this->inMemorySlotsApiClient = $this->createMock(InMemoryDoctorApiClient::class);
+        $this->inMemorySlotsApiClient->method('getDoctorSlots')->willThrowException(new CannotGetDoctorsException('api error'));
+
+        $this->apiGateway = new DoctorsApiGateway($this->inMemoryDoctorApiClient, $this->inMemorySlotsApiClient);
+
+        $errorReportingStrategyMock = $this->createMock(ErrorReportingStrategyInterface::class);
+
+        $this->synchronizerUnderTest = new DoctorSlotsSynchronizer(
+            apiGateway: $this->apiGateway,
+            doctorProcessor: new DoctorService($this->doctorRepository, $this->logger),
+            slotProcessor: new SlotService($this->slotRepository, $this->logger),
+            errorReportingStrategy: $errorReportingStrategyMock,
+            logger: $this->logger,
+        );
+
+        $doctorId = 1;
+        $this->inMemoryDoctorApiClient->doctors = [
+            new DoctorDataDTO($doctorId, 'Happy Honey'),
+        ];
+        $this->synchronizerUnderTest->synchronizeDoctorSlots();
+        $doctor = $this->doctorRepository->find($doctorId);
+        $this->assertTrue($doctor?->hasError());
+    }
+
+    private function createLogger(string $logfile = 'php://stderr'): LoggerInterface
+    {
+        return new Logger('logger', [new StreamHandler($logfile)]);
     }
 
     protected function setUp(): void
     {
+        $this->logger = $this->createLogger();
         $this->doctorRepository = new InMemoryDoctorRepository([]);
         $this->slotRepository = new InMemorySlotRepository([]);
         $this->inMemoryDoctorApiClient = new InMemoryDoctorApiClient();
         $this->inMemorySlotsApiClient = new InMemoryDoctorApiClient();
         $this->apiGateway = new DoctorsApiGateway($this->inMemoryDoctorApiClient, $this->inMemorySlotsApiClient);
         $this->synchronizerUnderTest = new DoctorSlotsSynchronizer(
-            doctorRepository: $this->doctorRepository,
-            slotRepository: $this->slotRepository,
             apiGateway: $this->apiGateway,
+            doctorProcessor: new DoctorService($this->doctorRepository, $this->logger),
+            slotProcessor: new SlotService($this->slotRepository, $this->logger),
             errorReportingStrategy: new DoNotReportErrorsOnSundayStrategy(),
+            logger: $this->logger,
         );
     }
 }
