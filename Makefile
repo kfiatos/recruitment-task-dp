@@ -23,7 +23,7 @@ destroy: stop
 	${COMPOSE} rm --force --stop -v
 
 test-phpunit:
-	${COMPOSE} run --rm php php bin/phpunit
+	${COMPOSE} run --rm php php vendor/bin/phpunit
 
 php-cs-fixer:
 	${COMPOSE} run --rm php php vendor/bin/php-cs-fixer fix --allow-risky=yes

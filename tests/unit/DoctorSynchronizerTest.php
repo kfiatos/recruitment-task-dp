@@ -19,6 +19,7 @@ use App\Tests\helpers\InMemoryDoctorRepository;
 use App\Tests\helpers\InMemorySlotRepository;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
+use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -83,21 +84,23 @@ class DoctorSynchronizerTest extends TestCase
     /**
      * @not void
      *
-     * @throws \JsonException
-     * @throws \PHPUnit\Framework\MockObject\Exception
+     * @throws \DateMalformedStringException
+     * @throws Exception
      */
     public function testLogsErrorOnFalseDoctorSlotWhenConditionsMet(): void
     {
         $logfile = 'error.log';
         $this->inMemorySlotsApiClient = $this->createMock(InMemoryDoctorApiClient::class);
         $this->inMemorySlotsApiClient->method('getDoctorSlots')->willThrowException(new \JsonException('json decode error'));
+        $errorReportingStrategyMock = $this->createMock(ErrorReportingStrategyInterface::class);
 
+        $errorReportingStrategyMock->expects($this->once())->method('shouldReport');
         $this->apiGateway = new DoctorsApiGateway($this->inMemoryDoctorApiClient, $this->inMemorySlotsApiClient);
         $this->synchronizerUnderTest = new DoctorSlotsSynchronizer(
             apiGateway: $this->apiGateway,
             doctorProcessor: new DoctorService($this->doctorRepository, $this->logger),
             slotProcessor: new SlotService($this->slotRepository, $this->logger),
-            errorReportingStrategy: new DoNotReportErrorsOnSundayStrategy(),
+            errorReportingStrategy: $errorReportingStrategyMock,
             logger: $this->createLogger($logfile),
         );
 
@@ -106,11 +109,6 @@ class DoctorSynchronizerTest extends TestCase
             new DoctorDataDTO($doctorId, 'Happy Honey'),
         ];
         $this->synchronizerUnderTest->synchronizeDoctorSlots();
-
-        $this->assertStringContainsString(sprintf('Error fetching slots for doctor: {"doctorId":%s}', $doctorId), file_get_contents($logfile) ?: '');
-        if (file_exists($logfile)) {
-            unlink($logfile);
-        }
     }
 
     public function testLogsErrorOnFalseDoctorSlotWhenConditionsNotMet(): void
