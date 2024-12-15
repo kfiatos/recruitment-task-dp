@@ -9,8 +9,8 @@ RUN pecl install xdebug && docker-php-ext-enable xdebug
 COPY ./docker/php/xdebug.ini $PHP_INI_DIR/conf.d/xdebug.ini
 
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
+COPY ./docker/php/entrypoint.sh /entrypoint.sh
 
 WORKDIR /app
 COPY . /app
-
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader  && composer config --no-plugins allow-plugins.infection/extension-installer true
+ENTRYPOINT ["sh", "/entrypoint.sh"]

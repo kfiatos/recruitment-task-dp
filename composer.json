@@ -19,5 +19,10 @@
         "phpunit/phpunit": "^11.2",
         "friendsofphp/php-cs-fixer": "^3.6",
         "phpstan/phpstan": "^2.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "infection/extension-installer": true
+        }
     }
 }
