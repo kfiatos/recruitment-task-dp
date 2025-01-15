@@ -1,6 +1,5 @@
 # What was not done :(
-1. Could not test if the Slot->isStale() method is working
-2. Some PHPSTAN errors are still there, fixing them would take more time and I think it can stay like this for now
+1. Some PHPSTAN errors are still there, fixing them would take more time 
 
 # What was done:
 1. dockerized
