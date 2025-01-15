@@ -1,3 +1,16 @@
+# What was not done :(
+1. Some PHPSTAN errors are still there, fixing them would take more time 
+
+# What was done:
+1. dockerized
+2. refactored
+3. added as much tests as I could
+
+# How to start the project:
+just run: `make start` from host and project should build and start the project
+
+other needed commands can be found in `Makefile`
+
 # Refactoring & unit testing challenge
 
 ## How to use this repsitory and complete the assignment

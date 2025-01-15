@@ -1,0 +1,9 @@
+parameters:
+    level: 9
+    reportUnmatchedIgnoredErrors: false
+    paths:
+        - bin/
+        - config/
+        - public/
+        - src/
+        - tests/

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Entity;
@@ -8,13 +9,16 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Entity
+ *
  * @ORM\Table(name="slot")
  */
 final class Slot
 {
     /**
      * @ORM\Id
+     *
      * @ORM\GeneratedValue(strategy="AUTO")
+     *
      * @ORM\Column(type="integer")
      */
     private string $id;
@@ -27,40 +31,55 @@ final class Slot
     /**
      * @ORM\Column(type="datetime")
      */
-    private DateTime $start;
+    private \DateTimeInterface $start;
 
     /**
      * @ORM\Column(type="datetime")
      */
-    private DateTime $end;
+    private \DateTimeInterface $end;
 
     /**
      * @ORM\Column(type="datetime")
      */
-    private DateTime $createdAt;
+    private readonly \DateTimeImmutable $createdAt;
 
-    public function __construct(int $doctorId, DateTime $start, DateTime $end)
+    public function __construct(int $doctorId, \DateTimeInterface $start, \DateTimeInterface $end, \DateTimeImmutable $createdAt = new \DateTimeImmutable())
     {
         $this->doctorId = $doctorId;
         $this->start = $start;
         $this->end = $end;
-        $this->createdAt = new DateTime();
+        $this->createdAt = $createdAt;
     }
 
-    public function getStart(): DateTime
+    public function getStart(): \DateTimeInterface
     {
         return $this->start;
     }
 
-    public function setEnd(DateTime $end): self
+    public function setEnd(\DateTime $end): self
     {
         $this->end = $end;
 
         return $this;
     }
 
+    public function getEnd(): \DateTimeInterface
+    {
+        return $this->end;
+    }
+
+    public function getDoctorId(): int
+    {
+        return $this->doctorId;
+    }
+
     public function isStale(): bool
     {
-        return $this->createdAt < new DateTime('5 minutes ago');
+        return $this->createdAt < new \DateTime('5 minutes ago');
+    }
+
+    public function getCreatedAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
     }
 }

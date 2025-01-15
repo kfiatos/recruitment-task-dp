@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App;
 
+use App\DTO\DoctorDataDTO;
+
 class StaticDoctorSlotsSynchronizer extends DoctorSlotsSynchronizer
 {
-    protected function getDoctors(): string
+    /**
+     * @return DoctorDataDTO[]
+     */
+    public function getDoctors(): array
     {
-        return '[
+        $data = '[
   {
     "id": 0,
     "name": "Adoring Shtern"
@@ -130,6 +135,10 @@ class StaticDoctorSlotsSynchronizer extends DoctorSlotsSynchronizer
     "name": "Eloquent Brown"
   }
 ]';
-    }
+        $encodedData = json_decode($data, true);
 
+        return array_map(function ($row) {
+            return new DoctorDataDTO($row['id'], $row['name']);
+        }, $encodedData);
+    }
 }

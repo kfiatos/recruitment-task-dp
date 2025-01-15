@@ -1,9 +1,21 @@
-version: '3.8'
 services:
-  unit-testing-api:
-    container_name: unit-testing-api
-    build:
-      context: ./
-      dockerfile: docker/Dockerfile
-    ports:
-      - '2137:2137'
+    php:
+        build:
+            context: ./
+            dockerfile: docker/php/Dockerfile
+        volumes:
+            - .:/app
+        working_dir: /app
+        container_name: unit-testing-api-php
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        environment:
+            PHP_IDE_CONFIG: "serverName=unit-testing-api-php"
+
+    unit-testing-api:
+        container_name: unit-testing-api
+        build:
+            context: ./
+            dockerfile: docker/Dockerfile
+        ports:
+            - '2137:2137'

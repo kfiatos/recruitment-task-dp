@@ -8,12 +8,14 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Entity
+ *
  * @ORM\Table(name="doctor")
  */
 final class Doctor
 {
     /**
      * @ORM\Id
+     *
      * @ORM\Column(type="integer")
      */
     private string $id;
@@ -62,6 +64,7 @@ final class Doctor
     public function setName(string $name): self
     {
         $this->name = $name;
+
         return $this;
     }
 }
